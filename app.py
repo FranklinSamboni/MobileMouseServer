@@ -3,7 +3,13 @@ import socket
 import time
 import json
 
-UDP_IP = "10.125.64.234"
+import datetime as dt
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+
+
+UDP_IP = "192.168.1.51"
 UDP_PORT = 4445
 # Internet # UDP
 sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
@@ -49,14 +55,59 @@ def moveMouse():
     pyautogui.moveTo(newX,newY, duration=0)
 
 
-print("start")
-while True:
+# Create figure for plotting
+fig = plt.figure()
+
+#plot for accX
+ax = fig.add_subplot(211)
+ts = []
+accx = []
+
+#plot for accY
+ax2 = fig.add_subplot(212)
+accy = []
+
+# This function is called periodically from FuncAnimation
+def animate(i, ts, accx, accy):
+
     data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
     print("received message: {}".format(data))
     js = json.loads(data)
-    timestamp = time.time()
-    updateposition(timestamp,js["accX"],js["accY"])
-    moveMouse()
+
+    # Add x and y to lists
+    ts.append(dt.datetime.now())
+    accx.append(js["accX"])
+    accy.append(js["accY"])
+
+    # Limit x and y lists to 20 items
+    ts = ts[-80:]
+    accx = accx[-80:]
+    accy = accy[-80:]
+
+    # Draw x and y lists
+    ax.clear()
+    ax.plot(ts, accx)
+    
+    ax2.clear()
+    ax2.plot(ts, accy)
+
+    ax.set_ylim(-9.8,9.8)
+    ax.set_ylabel('X')
+    ax2.set_ylabel('Y')
+    ax2.set_ylim(-9.8,9.8)
+    #fig.align_ylabels()
+
+print("start")
+ani = animation.FuncAnimation(fig, animate, fargs=(ts, accx, accy), interval=100)
+plt.show()
+
+#while True:
+    #data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+    #print("received message: {}".format(data))
+    #js = json.loads(data)
+    #timestamp = time.time()
+    #updateposition(timestamp,js["accX"],js["accY"])
+    #moveMouse()
 
 # print()
 # print()
