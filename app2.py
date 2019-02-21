@@ -7,23 +7,55 @@ import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-import bluetooth
-import sys
+
 
 UDP_IP = "10.125.64.234"
 UDP_PORT = 4445
 # Internet # UDP
 sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
 sock.bind((UDP_IP, UDP_PORT))
+maxPos = pyautogui.size()
+cPos = pyautogui.position()
+cPixelX = cPos.x
+cPixelY = cPos.y
 
-pos = pyautogui.position()
 windowResolution = pyautogui.size()
-pixelToMeter = 3779527.5590551  / 0.001 # 37.7952755906Pixel / 0.01Meter
+pixelToMeter = 3779527.5590551  / 0.01 # 37.7952755906Pixel / 0.01Meter
+
 mPosX=0
 mPosY=0
 mVelX=0
 mVelY=0
 lastTime=0
+dT = 0
+
+pyautogui.FAILSAFE = False
+
+def resolveCollisionWithBounds():
+    global cPixelX
+    global cPixelY 
+    global mVelX
+    global mVelY
+    xmax = maxPos.width
+    ymax = maxPos.height
+    xpixel = cPixelX 
+    ypixel = cPixelY 
+
+    if (xpixel > xmax):
+        cPixelX = xmax
+        mVelX = 0
+    elif (xpixel < 0):
+        cPixelX = 0
+        mVelX = 0
+
+    if (ypixel > ymax):
+        cPixelY = ymax
+        mVelY = 0
+    elif (ypixel < 0):
+        cPixelY = 0
+        mVelY = 0
+
+        
 
 def updateposition(timeStamp, sx,sy):
     finalT = timeStamp
@@ -57,23 +89,24 @@ def moveMouse():
     newY = ypixel + currentPosition.y
     pyautogui.moveTo(newX,newY, duration=0)
 
-print("start")
-uuid = "6d64ed24-16de-4439-8e19-9b4b5dd96737"
-service_matches = bluetooth.find_service( uuid = uuid )
+# def moveMouse():
+#     global cPixelX
+#     global cPixelY
+#     cPixelX = mPosX * pixelToMeter
+#     cPixelY = mPosY * pixelToMeter
 
-if len(service_matches) == 0:
-    print("couldn't find the service")
-    sys.exit(0)
+#     #print(" first posX {}, posY {}, pixelX {}, pixelY {}".format(mPosX,mPosY,cPixelX,cPixelY))
+#     currentPosition = pyautogui.position()
+#     cPixelX = cPixelX + currentPosition.x
+#     cPixelY = cPixelY + currentPosition.y
 
-first_match = service_matches[0]
-port = first_match["port"]
-name = first_match["name"]
-host = first_match["host"]
+#     #print(" medium posX {}, posY {}, pixelX {}, pixelY {}".format(mPosX,mPosY,cPixelX,cPixelY))
+    
+#     #resolveCollisionWithBounds()
 
-print("connecting to {} on {}".format(name, host))
+#     #print(" last posX {}, posY {}, pixelX {}, pixelY {}".format(mPosX,mPosY,cPixelX,cPixelY))
+#     pyautogui.moveTo(cPixelX,cPixelY, duration=0)
 
-sockBlue=bluetooth.BluetoothSocket( bluetooth.RFCOMM )
-sockBlue.connect((host, port))
 
 
 # Create figure for plotting
@@ -91,72 +124,45 @@ accy = []
 # This function is called periodically from FuncAnimation
 def animate(i, ts, accx, accy):
 
-    data = sockBlue.recv(1024) # buffer size is 1024 bytes
-    msg = data.decode('utf-8')
-    arr = msg.split("/")
-    if(len(arr)>0 and arr[0] != ''): 
-        print(arr[0])
-        js=None
-        try:
-            js = json.loads(arr[0])
-            # Add x and y to lists
-            ts.append(dt.datetime.now())
-            accx.append(js["accX"])
-            accy.append(js["accY"])
-
-            # Limit x and y lists to 20 items
-            ts = ts[-80:]
-            accx = accx[-80:]
-            accy = accy[-80:]
-
-            # Draw x and y lists
-            ax.clear()
-            ax.plot(ts, accx)
-            
-            ax2.clear()
-            ax2.plot(ts, accy)
-
-            ax.set_ylim(-9.8,9.8)
-            ax.set_ylabel('X')
-            ax2.set_ylabel('Y')
-            ax2.set_ylim(-9.8,9.8)
-            #fig.align_ylabels()
-        except:
-            print("Fallo")
-        
-
-#ani = animation.FuncAnimation(fig, animate, fargs=(ts, accx, accy), interval=10)
-#plt.show()
-#sockBlue.close()
-
-#FROM BLUETOOTH
-while True:
-    data = sockBlue.recv(1024) # buffer size is 1024 bytes
+    data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
     #print("received message: {}".format(data))
-    msg = data.decode('utf-8')
-    arr = msg.split("/")
-    if(len(arr)>0 and arr[0] != ''): 
-        print(arr[0])
-        js=None
-        try:
-            js = json.loads(arr[0])
-            timestamp = time.time()
-            updateposition(timestamp,js["accX"],js["accY"])
-            moveMouse()
-        except:
-            print("fallo")
+    js = json.loads(data)
+
+    # Add x and y to lists
+    ts.append(dt.datetime.now())
+    updateposition(time.time(),js["accX"],js["accY"])
+    accx.append(mPosX)
+    accy.append(mPosY)
+
+    # Limit x and y lists to 20 items
+    ts = ts[-80:]
+    accx = accx[-80:]
+    accy = accy[-80:]
+
+    # Draw x and y lists
+    ax.clear()
+    ax.plot(ts, accx)
     
-sockBlue.close()
+    ax2.clear()
+    ax2.plot(ts, accy)
 
+    #ax.set_ylim(-9.8,9.8)
+    ax.set_ylabel('X')
+    ax2.set_ylabel('Y')
+    #ax2.set_ylim(-9.8,9.8)
+    #fig.align_ylabels()
 
+print("start")
+#ani = animation.FuncAnimation(fig, animate, fargs=(ts, accx, accy), interval=100)
+#plt.show()
 
-#while True:
-    #data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-    #print("received message: {}".format(data))
-    #js = json.loads(data)
-    #timestamp = time.time()
-    #updateposition(timestamp,js["accX"],js["accY"])
-    #moveMouse()
+while True:
+    data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+    print("received message: {}".format(data))
+    js = json.loads(data)
+    timestamp = time.time()
+    updateposition(timestamp,js["accX"],js["accY"])
+    moveMouse()
 
 # print()
 # print()
