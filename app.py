@@ -16,14 +16,39 @@ UDP_PORT = 4445
 sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
 sock.bind((UDP_IP, UDP_PORT))
 
-pos = pyautogui.position()
+cPixelX=0
+cPixelY=0
 windowResolution = pyautogui.size()
-pixelToMeter = 3779527.5590551  / 0.001 # 37.7952755906Pixel / 0.01Meter
+pixelToMeter = 3779527.5590551  / 0.01 # 37.7952755906Pixel / 0.01Meter
 mPosX=0
 mPosY=0
 mVelX=0
 mVelY=0
 lastTime=0
+
+def resolveCollisionWithBounds():
+    global cPixelX
+    global cPixelY 
+    global mVelX
+    global mVelY
+    xmax = windowResolution.width
+    ymax = windowResolution.height
+    xpixel = cPixelX 
+    ypixel = cPixelY 
+
+    if (xpixel > xmax):
+        cPixelX = xmax
+        mVelX = 0
+    elif (xpixel < 0):
+        cPixelX = 0
+        mVelX = 0
+
+    if (ypixel > ymax):
+        cPixelY = ymax
+        mVelY = 0
+    elif (ypixel < 0):
+        cPixelY = 0
+        mVelY = 0
 
 def updateposition(timeStamp, sx,sy):
     finalT = timeStamp
@@ -48,14 +73,32 @@ def updateposition(timeStamp, sx,sy):
 
     lastTime = timeStamp
 
-def moveMouse():
-    xpixel = mPosX * pixelToMeter
-    ypixel = mPosY * pixelToMeter
+# def moveMouse():
+#     xpixel = mPosX * pixelToMeter
+#     ypixel = mPosY * pixelToMeter
 
+#     currentPosition = pyautogui.position()
+#     newX = xpixel + currentPosition.x
+#     newY = ypixel + currentPosition.y
+#     pyautogui.moveTo(newX,newY, duration=0)
+
+def moveMouse():
+    global cPixelX
+    global cPixelY
+    cPixelX = mPosX * pixelToMeter
+    cPixelY = mPosY * pixelToMeter
+
+    #print(" first posX {}, posY {}, pixelX {}, pixelY {}".format(mPosX,mPosY,cPixelX,cPixelY))
     currentPosition = pyautogui.position()
-    newX = xpixel + currentPosition.x
-    newY = ypixel + currentPosition.y
-    pyautogui.moveTo(newX,newY, duration=0)
+    cPixelX = cPixelX + currentPosition.x
+    cPixelY = cPixelY + currentPosition.y
+
+    #print(" medium posX {}, posY {}, pixelX {}, pixelY {}".format(mPosX,mPosY,cPixelX,cPixelY))
+    
+    resolveCollisionWithBounds()
+
+    #print(" last posX {}, posY {}, pixelX {}, pixelY {}".format(mPosX,mPosY,cPixelX,cPixelY))
+    pyautogui.moveTo(cPixelX,cPixelY, duration=0)
 
 print("start")
 uuid = "6d64ed24-16de-4439-8e19-9b4b5dd96737"
